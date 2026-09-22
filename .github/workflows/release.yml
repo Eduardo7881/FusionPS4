@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkg-config \
+            libsdl2-dev libvulkan-dev \
+            libmpg123-dev libjpeg-dev libpng-dev \
+            libfreetype-dev libcurl4-openssl-dev glslang-tools
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
+      - name: Package
+        run: |
+          mkdir -p dist/fusionps4
+          cp build/fusionps4         dist/fusionps4/
+          cp build/fs4-inspect-elf   dist/fusionps4/
+          cp build/fs4-unimpl-report dist/fusionps4/
+          cp -r docs                 dist/fusionps4/
+          cp README.md               dist/fusionps4/
+          tar -C dist -czf fusionps4-${{ github.ref_name }}-linux-x86_64.tar.gz fusionps4
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: fusionps4-${{ github.ref_name }}-linux-x86_64.tar.gz
+          generate_release_notes: true
