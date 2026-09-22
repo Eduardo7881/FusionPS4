@@ -39,6 +39,10 @@ public:
     process::PS4Process&           mainProcess() { return *m_mainProcess; }
 
     const config::RuntimeConfig& config() const { return m_config; }
+    // Optional: called from Application after the process is loaded. If
+    // FUSIONPS4_ISOLATED=1 is set in the environment, Runtime::init()
+    // invokes this automatically.
+    bool startGuestIfIsolated();
 
 private:
     bool createMainProcess();

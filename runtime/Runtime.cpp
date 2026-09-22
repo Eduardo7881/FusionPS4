@@ -1,5 +1,5 @@
 #include "runtime/Runtime.hpp"
-
+#include "isolation/IsolationConfig.hpp"
 #include "debug/Log.hpp"
 
 #include <SDL.h>
@@ -100,6 +100,25 @@ bool Runtime::tick(double deltaSeconds) {
 
 void Runtime::requestQuit() {
     m_running = false;
+}
+
+bool Runtime::startGuestIfIsolated() {
+    const char* env = std::getenv("FUSIONPS4_ISOLATED");
+    if (!env || std::string(env) != "1") {
+        FP4_INFO(LogCategory::Host)
+            << "guest isolation disabled (set FUSIONPS4_ISOLATED=1 to enable)";
+        return true;
+    }
+
+    auto iso = isolation::loadIsolationConfigFromEnvironment();
+    if (!m_mainProcess->start(iso)) {
+        FP4_FATAL(LogCategory::Process) << "failed to start isolated guest";
+        return false;
+    }
+    FP4_INFO(LogCategory::Process)
+        << "guest process running in isolated mode; "
+        << "runtime controls every syscall";
+    return true;
 }
 
 } // namespace fusionps4::runtime

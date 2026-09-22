@@ -74,6 +74,7 @@ private:
 
     mutable std::mutex        m_mutex;
     std::vector<MemoryRegion> m_regions;
+    std::unique_ptr<isolation::SharedArena> m_arena;
 };
 
 } // namespace fusionps4::runtime::memory

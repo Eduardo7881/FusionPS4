@@ -3,7 +3,10 @@
 #include "runtime/handles/HandleTable.hpp"
 #include "runtime/memory/AddressSpace.hpp"
 #include "runtime/thread/ThreadManager.hpp"
+#include "runtime/GuestProcess.hpp"
+#include "syscall/trap/TrapServer.hpp"
 
+#include <memory>
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -56,6 +59,21 @@ public:
     runtime::thread::ThreadManager&  threadManager()  { return m_threads; }
 
     runtime::thread::ThreadId mainThreadId() const { return m_mainThread; }
+    
+    // Owns the forked child that actually executes PS4 code. Null until
+    // start() is called.
+    GuestProcess* guestProcess() { return m_guest.get(); }
+
+    // Runtime-side trap server that services the shared ring.
+    syscall::trap::TrapServer* trapServer() { return m_trapServer.get(); }
+
+    // Installs isolation, forks the guest, wires up the trap server, and
+    // jumps the guest to the loaded module's entry point. Returns false if
+    // isolation cannot be established.
+    bool start(const isolation::IsolationConfig& iso);
+
+    // Blocks until the guest exits.
+    int waitForGuest();
 
 private:
     ProcessId  m_id;
@@ -66,6 +84,13 @@ private:
     runtime::handles::HandleTable   m_handleTable;
     runtime::thread::ThreadManager  m_threads;
     runtime::thread::ThreadId       m_mainThread = 0;
+    
+    std::unique_ptr<GuestProcess>          m_guest;
+    std::unique_ptr<syscall::trap::TrapServer> m_trapServer;
+
+    // Static trampoline that the child's trap gate jumps into. Calls the
+    // loaded module's entry point.
+    static void guestEntryTrampoline(void* arg);
 
     mutable std::mutex m_mutex;
 };

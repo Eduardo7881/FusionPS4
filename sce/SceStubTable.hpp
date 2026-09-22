@@ -33,7 +33,9 @@ public:
 
     // Snapshot for diagnostics.
     std::vector<std::pair<std::string, void*>> snapshot() const;
-
+   
+    std::uint32_t getOrAssignId(const std::string& qualified);
+    void*         resolveById(std::uint32_t id)
 private:
     SceStubTable() = default;
 
@@ -41,6 +43,8 @@ private:
 
     mutable std::mutex m_mutex;
     std::unordered_map<std::string, void*> m_stubs;
+    std::unordered_map<std::uint32_t, void*> m_byId;
+    std::uint32_t m_nextId = 1;
 };
 
 } // namespace fusionps4::sce

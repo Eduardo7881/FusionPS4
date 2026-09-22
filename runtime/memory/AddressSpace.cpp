@@ -1,5 +1,5 @@
 #include "runtime/memory/AddressSpace.hpp"
-
+#include "isolation/SharedArena.hpp"
 #include "debug/Log.hpp"
 
 #include <algorithm>
@@ -42,41 +42,27 @@ bool AddressSpace::init() {
     std::lock_guard lock(m_mutex);
     if (m_base) return true;
 
-    void* r = ::mmap(reinterpret_cast<void*>(kGuestBase),
-                     static_cast<std::size_t>(kGuestSize),
-                     PROT_NONE,
-                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE |
-                         MAP_FIXED_NOREPLACE,
-                     -1, 0);
-    if (r == MAP_FAILED) {
+    m_arena = std::make_unique<isolation::SharedArena>();
+    if (!m_arena->init(kGuestBase, static_cast<std::size_t>(kGuestSize))) {
         FP4_ERROR(LogCategory::Memory)
-            << "Failed to reserve guest VA region: " << std::strerror(errno);
-        return false;
-    }
-    if (reinterpret_cast<std::uintptr_t>(r) != kGuestBase) {
-        FP4_ERROR(LogCategory::Memory)
-            << "Guest VA reservation returned unexpected base: " << r;
-        ::munmap(r, static_cast<std::size_t>(kGuestSize));
+            << "SharedArena initialization failed";
+        m_arena.reset();
         return false;
     }
 
     m_base     = kGuestBase;
     m_capacity = static_cast<std::size_t>(kGuestSize);
-    m_nextHint = m_base + 0x10000; // leave first page inaccessible
-
-    FP4_INFO(LogCategory::Memory)
-        << "Guest VA reserved: [" << reinterpret_cast<void*>(m_base) << ", "
-        << reinterpret_cast<void*>(m_base + m_capacity) << ") size="
-        << (m_capacity >> 30) << " GiB";
+    m_nextHint = m_base + 0x10000;
     return true;
 }
 
 void AddressSpace::destroy() {
     std::lock_guard lock(m_mutex);
-    if (m_base && m_capacity) {
-        ::munmap(reinterpret_cast<void*>(m_base), m_capacity);
+    if (m_arena) {
+        m_arena->destroy();
+        m_arena.reset();
     }
-    m_base     = 0;
+    m_base = 0;
     m_capacity = 0;
     m_nextHint = 0;
     m_regions.clear();
@@ -112,45 +98,27 @@ GuestAddress AddressSpace::findFreeGap(std::size_t size,
     return 0;
 }
 
-GuestAddress AddressSpace::map(GuestAddress hint,
+AddressSpace::map(GuestAddress hint,
                                std::size_t  size,
                                RegionProt   prot,
                                const std::string& name) {
     std::lock_guard lock(m_mutex);
-    if (!m_base) return 0;
+    if (!m_base || !m_arena) return 0;
 
     size = alignUp(size, kPageSize);
-
     const GuestAddress where = findFreeGap(size, hint);
-    if (!where) {
-        FP4_ERROR(LogCategory::Memory)
-            << "No free guest VA gap for size " << size << " (" << name << ")";
-        return 0;
-    }
+    if (!where) return 0;
 
-    void* r = ::mmap(reinterpret_cast<void*>(where), size, toHostProt(prot),
-                     MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED_NOREPLACE, -1, 0);
-    if (r == MAP_FAILED) {
-        FP4_ERROR(LogCategory::Memory)
-            << "mmap(" << reinterpret_cast<void*>(where) << ", " << size
-            << ") failed: " << std::strerror(errno);
-        return 0;
-    }
-
+    // The arena is already mapped RW in the parent. Just record the region;
+    // the guest's view is changed separately by the child's trap handler.
     MemoryRegion region;
     region.base    = where;
     region.size    = size;
     region.prot    = prot;
-    region.hostPtr = r;
+    region.hostPtr = m_arena->hostPointer(where);
     region.name    = name;
-
     m_regions.push_back(region);
     if (where == m_nextHint) m_nextHint = where + size;
-
-    FP4_DEBUG(LogCategory::Memory)
-        << "map " << name << " [" << reinterpret_cast<void*>(where) << ", "
-        << reinterpret_cast<void*>(where + size) << ") prot="
-        << static_cast<int>(prot);
     return where;
 }
 
