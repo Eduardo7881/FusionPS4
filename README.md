@@ -1,11 +1,11 @@
-# FusionP4
+# FusionPS4
 
 ![Status](https://img.shields.io/badge/status-WIP-red)
 ![Platform](https://img.shields.io/badge/platform-Linux-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Version](https://img.shields.io/badge/version-0.1--dev-orange)
 
-FusionP4 is an experimental compatibility layer that aims to run
+FusionPS4 is an experimental compatibility layer that aims to run
 PlayStation 4 applications on Linux systems.
 
 ## Quickstart
@@ -37,7 +37,7 @@ PlayStation 4 applications on Linux systems.
 - [GNM formats](docs/gnm-formats.md)
 - [UNIMPLEMENTED report](docs/unimplemented-report.md)
 - [Troubleshooting](docs/troubleshooting.md)
-- [Contributing](docs/contributing.md)
+- [Contributing](CONTRIBUTING.md)
 
 ## Status
 
