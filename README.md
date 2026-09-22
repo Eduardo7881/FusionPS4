@@ -3,7 +3,8 @@
 ![Status](https://img.shields.io/badge/status-WIP-red)
 ![Platform](https://img.shields.io/badge/platform-Linux-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-0.1--dev-orange)
+![Version](https://img.shields.io/github/v/release/Eduardo7881/FusionPS4?color=violet)
+![Repository Size](https://img.shields.io/github/repo-size/Eduardo7881/FusionPS4)
 
 FusionPS4 is an experimental compatibility layer that aims to run
 PlayStation 4 applications on Linux systems.
